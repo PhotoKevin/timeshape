@@ -103,6 +103,7 @@ public final class TimeZoneEngine implements Serializable {
      * @return {@code Optional<ZoneId>#of(ZoneId)} if input corresponds
      * to some zone, or {@link Optional#empty()} otherwise.
      */
+    @SuppressWarnings("SizeReplaceableByIsEmpty")
     public Optional<ZoneId> query(double latitude, double longitude) {
         final List<ZoneId> result = index.query(latitude, longitude);
         return result.size() > 0 ? Optional.of(result.get(0)) : Optional.empty();
@@ -138,6 +139,7 @@ public final class TimeZoneEngine implements Serializable {
      * Creates a new instance of {@link TimeZoneEngine} and initializes it.
      * This is a blocking long running operation.
      *
+     * @param accelerateGeometry Increase query speed at the expense of memory utilization
      * @return an initialized instance of {@link TimeZoneEngine}
      */
     public static TimeZoneEngine initialize(boolean accelerateGeometry) {
@@ -169,6 +171,7 @@ public final class TimeZoneEngine implements Serializable {
      * }
      * }}}
      *
+     * @param f Input stream of timezone data tar archive
      * @return an initialized instance of {@link TimeZoneEngine}
      */
     public static TimeZoneEngine initialize(TarArchiveInputStream f) {
@@ -188,6 +191,13 @@ public final class TimeZoneEngine implements Serializable {
      * throw new RuntimeException(e);
      * }
      * }}}
+     * 
+     * @param minLat Minimum latitude of bounding box
+     * @param minLon Minimum longitude of bounding box
+     * @param maxLat Maximum latitude of bounding box
+     * @param maxLon Maximum longitude of bounding box
+     * @param accelerateGeometry Increase query speed at the expense of memory utilization
+     * @param f Input stream of timezone data tar archive
      *
      * @return an initialized instance of {@link TimeZoneEngine}
      */
@@ -224,11 +234,54 @@ public final class TimeZoneEngine implements Serializable {
                         accelerateGeometry));
     }
 
+    /**
+     * Creates a new instance of {@link TimeZoneEngine} and initializes it.
+     * This is a blocking long running operation.
+     *
+     * @param timeZones List of ZoneIds to load. 
+     * @param f Input stream of timezone data tar archive
+     * @param accelerateGeometry Increase query speed at the expense of memory utilization
+     * @return an initialized instance of {@link TimeZoneEngine}
+     */
+    
+    public static TimeZoneEngine initialize(List<ZoneId> timeZones,
+                                            boolean accelerateGeometry,
+                                            TarArchiveInputStream f) {
+        log.info("Initializing with list of time zones");
+        
+        Spliterator<TarArchiveEntry> tarArchiveEntrySpliterator = makeSpliterator(f);
+        Stream<Geojson.Feature> featureStream = StreamSupport.stream(tarArchiveEntrySpliterator, false).map(n -> {
+            try {
+                if (n != null) {
+                    log.debug("Processing archive entry {}", n.getName());
+                    byte[] e = new byte[(int) n.getSize()];
+                    f.read(e);
+                    return Geojson.Feature.parseFrom(e);
+                } else {
+                    throw new RuntimeException("Data entry is not found in file");
+                }
+            } catch (NullPointerException | IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        });
+        int numberOfTimezones = 449; // can't get number of entries from tar, need to set manually
+        return new TimeZoneEngine(
+                Index.build(
+                        featureStream,
+                        numberOfTimezones,
+                        timeZones,
+                        accelerateGeometry));
+    }
 
     /**
      * Creates a new instance of {@link TimeZoneEngine} and initializes it.
      * This is a blocking long running operation.
      *
+     * @param minLat Minimum latitude of bounding box
+     * @param minLon Minimum longitude of bounding box
+     * @param maxLat Maximum latitude of bounding box
+     * @param maxLon Maximum longitude of bounding box
+     * @param accelerateGeometry Increase query speed at the expense of memory utilization
      * @return an initialized instance of {@link TimeZoneEngine}
      */
     public static TimeZoneEngine initialize(double minLat, double minLon, double maxLat, double maxLon, boolean accelerateGeometry) {
@@ -237,6 +290,30 @@ public final class TimeZoneEngine implements Serializable {
                 try (BufferedInputStream bufferedStream = new BufferedInputStream(unzipStream)) {
                     try (TarArchiveInputStream shapeInputStream = new TarArchiveInputStream(bufferedStream)) {
                         return initialize(minLat, minLon, maxLat, maxLon, accelerateGeometry, shapeInputStream);
+                    }
+                }
+            }
+        } catch (NullPointerException | IOException e) {
+            log.error("Unable to read resource file", e);
+            throw new RuntimeException(e);
+        }
+    }
+    
+    
+    /**
+     * Creates a new instance of {@link TimeZoneEngine} and initializes it.
+     * This is a blocking long running operation.
+     *
+     * @param timeZones List of ZoneIds to load. 
+     * @param accelerateGeometry Increase query speed at the expense of memory utilization
+     * @return an initialized instance of {@link TimeZoneEngine}
+     */
+    public static TimeZoneEngine initialize(List<ZoneId> timeZones, boolean accelerateGeometry) {
+        try (InputStream resourceAsStream = TimeZoneEngine.class.getResourceAsStream("/data.tar.zstd")) {
+            try (ZstdInputStream unzipStream = new ZstdInputStream(resourceAsStream)) {
+                try (BufferedInputStream bufferedStream = new BufferedInputStream(unzipStream)) {
+                    try (TarArchiveInputStream shapeInputStream = new TarArchiveInputStream(bufferedStream)) {
+                        return initialize(timeZones, accelerateGeometry, shapeInputStream);
                     }
                 }
             }

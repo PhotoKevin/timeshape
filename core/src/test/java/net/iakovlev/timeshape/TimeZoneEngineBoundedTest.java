@@ -22,6 +22,6 @@ public class TimeZoneEngineBoundedTest {
     @Test
     public void testWorld() {
         List<ZoneId> knownZoneIds = engine.getKnownZoneIds();
-        assertEquals(knownZoneIds.size(), 39);
+        assertEquals(39, knownZoneIds.size());
     }
 }
