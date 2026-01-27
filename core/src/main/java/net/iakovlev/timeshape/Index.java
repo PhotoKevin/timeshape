@@ -209,8 +209,8 @@ final class Index implements Serializable {
             String zoneIdName = f.getProperties(0).getValueString();
             try {
                 ZoneId zoneId = ZoneId.of(zoneIdName);
-                getPolygons(f).forEach(polygon -> {
-                    if (timeZones.contains (zoneId)) {
+                if (timeZones.contains (zoneId)) {
+                    getPolygons(f).forEach(polygon -> {
                         log.debug("Adding zone {} to index", zoneIdName);
                         if (accelerateGeometry) {
                             operatorIntersects.accelerateGeometry(polygon, spatialReference, Geometry.GeometryAccelerationDegree.enumMild);
@@ -219,10 +219,10 @@ final class Index implements Serializable {
                         int index = indices.next();
                         quadTree.insert(index, env);
                         zoneIds.add(index, new Entry(zoneId, polygon));
-                    } else {
-                        log.debug("Not adding zone {} to index because it's out of provided boundaries", zoneIdName);
-                    }
-                });
+                    });
+                } else {
+                    log.debug("Not adding zone {} to index because it's out of provided boundaries", zoneIdName);
+                }
             } catch (Exception ex) {
                 unknownZones.add(zoneIdName);
             }
