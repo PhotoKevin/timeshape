@@ -5,8 +5,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.time.ZoneId;
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 import static junit.framework.TestCase.assertEquals;
 
@@ -15,9 +16,9 @@ public class TimeZoneEngineBoundedZoneTest {
 
     @Test
     public void testSomeZones() {
-        ArrayList<ZoneId> timeZones = new ArrayList<> ();
+        Set<ZoneId> timeZones = new HashSet<> ();
         timeZones.add (ZoneId.of("Europe/Berlin"));
-         TimeZoneEngine engine = TimeZoneEngine.initialize (timeZones, true);
+        TimeZoneEngine engine = TimeZoneEngine.initialize (timeZones, true);
         assertEquals(Optional.of(ZoneId.of("Europe/Berlin")), engine.query(52.52, 13.40));
         
         timeZones.clear ();

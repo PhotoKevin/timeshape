@@ -25,6 +25,9 @@ import java.util.stream.StreamSupport;
 public final class TimeZoneEngine implements Serializable {
 
     private final Index index;
+    
+    private final static int NUMBER_OF_TIMEZONES = 449; // can't get number of entries from tar, need to set manually
+    private final static String DATA_FILE_NAME = "/data.tar.zstd";
 
     private final static double MIN_LAT = -90;
     private final static double MIN_LON = -180;
@@ -79,6 +82,25 @@ public final class TimeZoneEngine implements Serializable {
                 }
             }
         };
+    }
+    
+    
+    private static Stream<Geojson.Feature> spliterateInputStream(TarArchiveInputStream f) {
+        Spliterator<TarArchiveEntry> tarArchiveEntrySpliterator = makeSpliterator(f);
+        return StreamSupport.stream(tarArchiveEntrySpliterator, false).map(n -> {
+            try {
+                if (n != null) {
+                    log.debug("Processing archive entry {}", n.getName());
+                    byte[] e = new byte[(int) n.getSize()];
+                    f.read(e);
+                    return Geojson.Feature.parseFrom(e);
+                } else {
+                    throw new RuntimeException("Data entry is not found in file");
+                }
+            } catch (NullPointerException | IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        });
     }
 
     /**
@@ -209,27 +231,13 @@ public final class TimeZoneEngine implements Serializable {
                                             TarArchiveInputStream f) {
         log.info("Initializing with bounding box: {}, {}, {}, {}", minLat, minLon, maxLat, maxLon);
         validateCoordinates(minLat, minLon, maxLat, maxLon);
-        Spliterator<TarArchiveEntry> tarArchiveEntrySpliterator = makeSpliterator(f);
-        Stream<Geojson.Feature> featureStream = StreamSupport.stream(tarArchiveEntrySpliterator, false).map(n -> {
-            try {
-                if (n != null) {
-                    log.debug("Processing archive entry {}", n.getName());
-                    byte[] e = new byte[(int) n.getSize()];
-                    f.read(e);
-                    return Geojson.Feature.parseFrom(e);
-                } else {
-                    throw new RuntimeException("Data entry is not found in file");
-                }
-            } catch (NullPointerException | IOException ex) {
-                throw new RuntimeException(ex);
-            }
-        });
-        int numberOfTimezones = 449; // can't get number of entries from tar, need to set manually
+        Stream<Geojson.Feature> featureStream = spliterateInputStream (f);
+
         Envelope boundaries = new Envelope(minLon, minLat, maxLon, maxLat);
         return new TimeZoneEngine(
                 Index.build(
                         featureStream,
-                        numberOfTimezones,
+                        NUMBER_OF_TIMEZONES,
                         boundaries,
                         accelerateGeometry));
     }
@@ -239,36 +247,23 @@ public final class TimeZoneEngine implements Serializable {
      * This is a blocking long running operation.
      *
      * @param timeZones List of ZoneIds to load. 
-     * @param f Input stream of timezone data tar archive
      * @param accelerateGeometry Increase query speed at the expense of memory utilization
+     * @param numberOfTimeZones How many timezones are in the tar archive.
+     * @param f Input stream of timezone data tar archive
      * @return an initialized instance of {@link TimeZoneEngine}
      */
     
-    public static TimeZoneEngine initialize(List<ZoneId> timeZones,
+    public static TimeZoneEngine initialize(Set<ZoneId> timeZones,
                                             boolean accelerateGeometry,
+                                            int numberOfTimeZones,
                                             TarArchiveInputStream f) {
         log.info("Initializing with list of time zones");
-        
-        Spliterator<TarArchiveEntry> tarArchiveEntrySpliterator = makeSpliterator(f);
-        Stream<Geojson.Feature> featureStream = StreamSupport.stream(tarArchiveEntrySpliterator, false).map(n -> {
-            try {
-                if (n != null) {
-                    log.debug("Processing archive entry {}", n.getName());
-                    byte[] e = new byte[(int) n.getSize()];
-                    f.read(e);
-                    return Geojson.Feature.parseFrom(e);
-                } else {
-                    throw new RuntimeException("Data entry is not found in file");
-                }
-            } catch (NullPointerException | IOException ex) {
-                throw new RuntimeException(ex);
-            }
-        });
-        int numberOfTimezones = 449; // can't get number of entries from tar, need to set manually
+        Stream<Geojson.Feature> featureStream = spliterateInputStream (f);
+
         return new TimeZoneEngine(
                 Index.build(
                         featureStream,
-                        numberOfTimezones,
+                        numberOfTimeZones,
                         timeZones,
                         accelerateGeometry));
     }
@@ -285,7 +280,7 @@ public final class TimeZoneEngine implements Serializable {
      * @return an initialized instance of {@link TimeZoneEngine}
      */
     public static TimeZoneEngine initialize(double minLat, double minLon, double maxLat, double maxLon, boolean accelerateGeometry) {
-        try (InputStream resourceAsStream = TimeZoneEngine.class.getResourceAsStream("/data.tar.zstd")) {
+        try (InputStream resourceAsStream = TimeZoneEngine.class.getResourceAsStream(DATA_FILE_NAME)) {
             try (ZstdInputStream unzipStream = new ZstdInputStream(resourceAsStream)) {
                 try (BufferedInputStream bufferedStream = new BufferedInputStream(unzipStream)) {
                     try (TarArchiveInputStream shapeInputStream = new TarArchiveInputStream(bufferedStream)) {
@@ -308,12 +303,12 @@ public final class TimeZoneEngine implements Serializable {
      * @param accelerateGeometry Increase query speed at the expense of memory utilization
      * @return an initialized instance of {@link TimeZoneEngine}
      */
-    public static TimeZoneEngine initialize(List<ZoneId> timeZones, boolean accelerateGeometry) {
+    public static TimeZoneEngine initialize(Set<ZoneId> timeZones, boolean accelerateGeometry) {
         try (InputStream resourceAsStream = TimeZoneEngine.class.getResourceAsStream("/data.tar.zstd")) {
             try (ZstdInputStream unzipStream = new ZstdInputStream(resourceAsStream)) {
                 try (BufferedInputStream bufferedStream = new BufferedInputStream(unzipStream)) {
                     try (TarArchiveInputStream shapeInputStream = new TarArchiveInputStream(bufferedStream)) {
-                        return initialize(timeZones, accelerateGeometry, shapeInputStream);
+                        return initialize(timeZones, accelerateGeometry, NUMBER_OF_TIMEZONES,  shapeInputStream);
                     }
                 }
             }
@@ -322,4 +317,5 @@ public final class TimeZoneEngine implements Serializable {
             throw new RuntimeException(e);
         }
     }
+    
 }

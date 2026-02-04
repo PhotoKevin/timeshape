@@ -12,7 +12,7 @@ import static junit.framework.TestCase.assertEquals;
 
 @RunWith(JUnit4.class)
 public class TimeZoneEngineBoundedTest {
-    private static TimeZoneEngine engine = TimeZoneEngine.initialize(47.0599, 4.8237, 55.3300, 15.2486, true);
+    private static final TimeZoneEngine engine = TimeZoneEngine.initialize(47.0599, 4.8237, 55.3300, 15.2486, true);
 
     @Test
     public void testSomeZones() {

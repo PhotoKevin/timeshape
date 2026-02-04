@@ -10,7 +10,9 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.PrimitiveIterator;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -195,7 +197,7 @@ final class Index implements Serializable {
 
     
     @SuppressWarnings("SizeReplaceableByIsEmpty")
-    static Index build(Stream<Geojson.Feature> features, int size, List<ZoneId> timeZones, boolean accelerateGeometry) {
+    static Index build(Stream<Geojson.Feature> features, int size, Set<ZoneId> timeZones, boolean accelerateGeometry) {
         Envelope2D boundariesEnvelope = new Envelope2D();
         Envelope boundaries = new Envelope(-180, -90, 180, +90);// (minLon, minLat, maxLon, maxLat);
         boundaries.queryEnvelope2D(boundariesEnvelope);
