@@ -79,7 +79,7 @@ it must be covered by the bounding box completely, not just intersect with it.
 
 if you have difficulty determining the bounding box, you may prefer to use a list of ZoneIds instead.
 ```Java
-ArrayList<ZoneId> timeZones = new ArrayList<> ();
+Set<ZoneId> timeZones = new HashSet<> ();
 timeZones.add(ZoneId.of("Europe/Berlin"));
 timeZones.add(ZoneId.of("America/Detroit"));
 TimeZoneEngine engine = TimeZoneEngine.initialize (timeZones, true);
